@@ -4,4 +4,6 @@ Implementação de um transformer
 
 Arquivos e implementações usadas de laboratorios anteriores.
 
-Ferramentas de pesquisa: GPT, Youtube.
+Partes geradas/complementadas com IA, revisadas por Gláucio Monteiro
+
+Ferramentas de pesquisa: Chat GPT, Youtube.
