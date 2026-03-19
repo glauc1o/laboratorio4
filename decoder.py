@@ -1,28 +1,54 @@
 import numpy as np
-from attention import softmax
+from attention import scaled_dot_product_attention, softmax
+from layernorm import layer_norm
+from ffn import ffn
 
 def create_causal_mask(seq_len):
     mask = np.triu(np.ones((seq_len, seq_len)), k=1)
-    mask = np.where(mask == 1, -np.inf, 0)
-    return mask 
+    return np.where(mask == 1, -np.inf, 0)
 
-def cross_attention(encoder_out, decoder_state):
-    d_model = encoder_out.shape[-1]
-    d_k = d_model
-    
+
+def decoder_block(Y, Z):
+    d_model = Y.shape[-1]
+
     WQ = np.random.randn(d_model, d_model)
     WK = np.random.randn(d_model, d_model)
     WV = np.random.randn(d_model, d_model)
-    
-    Q = decoder_state @ WQ
-    K = encoder_out @ WK
-    V = encoder_out @ WV
-    
-    scores = np.matmul(Q, np.swapaxes(K, -1, -2)) / np.sqrt(d_k)
-    weights = softmax(scores)
-    return np.matmul(weights, V)
 
-def generate_next_token(current_sequence, encoder_out):
-    vocab_size = 10000
-    probs = np.random.dirichlet(np.ones(vocab_size), size=1).flatten()
-    return probs
+    Q = Y @ WQ
+    K = Y @ WK
+    V = Y @ WV
+
+    mask = create_causal_mask(Y.shape[1])
+    mask = np.expand_dims(mask, axis=0)
+
+    attn1 = scaled_dot_product_attention(Q, K, V, mask)
+    Y = layer_norm(Y + attn1)
+
+    WQ2 = np.random.randn(d_model, d_model)
+    WK2 = np.random.randn(d_model, d_model)
+    WV2 = np.random.randn(d_model, d_model)
+
+    Q = Y @ WQ2
+    K = Z @ WK2
+    V = Z @ WV2
+
+    attn2 = scaled_dot_product_attention(Q, K, V)
+    Y = layer_norm(Y + attn2)
+
+    ffn_out = ffn(Y)
+    Y = layer_norm(Y + ffn_out)
+
+    return Y
+
+
+def decoder(Y, Z, vocab_size, num_layers=2):
+    for _ in range(num_layers):
+        Y = decoder_block(Y, Z)
+
+    d_model = Y.shape[-1]
+    W_out = np.random.randn(d_model, vocab_size)
+
+    logits = Y @ W_out
+
+    return softmax(logits)
